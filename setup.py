@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name='Pyrebase',
-    version='3.0.27',
-    url='https://github.com/thisbejim/Pyrebase',
+    version='3.1.0',
+    url='https://github.com/ika-musuko/Pyrebase',
     description='A simple python wrapper for the Firebase API',
     author='James Childs-Maidment',
     license='MIT',
@@ -11,12 +11,12 @@ setup(
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.6',
     ],
     keywords='Firebase',
     packages=find_packages(exclude=['tests']),
     install_requires=[
-        'requests==2.11.1',
+        'requests==2.18.4',
         'gcloud==0.17.0',
         'oauth2client==3.0.0',
         'requests_toolbelt==0.7.0',

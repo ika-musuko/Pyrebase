@@ -1,3 +1,15 @@
+'''
+    pyrebase.py
+
+    python library for interacting with firebase
+
+    original written by James Childs-Maidment: https://github.com/thisbejim
+    additional functionality and comments added by Sherwyn Sen: https://github.com/ika-musuko
+
+    additional functions added indicated with ### three octothorpes
+'''
+
+
 import requests
 from requests import Session
 from requests.exceptions import HTTPError
@@ -77,6 +89,7 @@ class Auth:
         self.requests = requests
         self.credentials = credentials
 
+    # sign in using an email and password
     def sign_in_with_email_and_password(self, email, password):
         request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword?key={0}".format(self.api_key)
         headers = {"content-type": "application/json; charset=UTF-8"}
@@ -86,6 +99,7 @@ class Auth:
         self.current_user = request_object.json()
         return request_object.json()
 
+    # create a custom login token from the uid
     def create_custom_token(self, uid, additional_claims=None):
         service_account_email = self.credentials.service_account_email
         private_key = RSA.importKey(self.credentials._private_key_pkcs8_pem)
@@ -100,6 +114,7 @@ class Auth:
         exp = datetime.timedelta(minutes=60)
         return jwt.generate_jwt(payload, private_key, "RS256", exp)
 
+    # Exchange custom token for an ID and refresh token
     def sign_in_with_custom_token(self, token):
         request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken?key={0}".format(self.api_key)
         headers = {"content-type": "application/json; charset=UTF-8"}
@@ -108,6 +123,25 @@ class Auth:
         raise_detailed_error(request_object)
         return request_object.json()
 
+    # change a user's email
+    def change_email(self, id_token, new_email):
+        request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/setAccountInfo?key={0}".format(self.api_key)
+        headers = {"content-type:" : "application/json; charset=UTF-8"}
+        data = json.dumps({"idToken" : id_token, "email" : new_email, "returnSecureToken" : True})
+        request_object = requests.post(request_ref, headers=headers, data=data)
+        raise_detailed_error(request_object)
+        return request_object.json()
+
+    # change a user's password
+    def change_password(self, id_token, new_password):
+        request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/setAccountInfo?key={0}".format(self.api_key)
+        headers = {"content-type:" : "application/json; charset=UTF-8"}
+        data = json.dumps({"idToken" : id_token, "password" : new_password, "returnSecureToken" : True})
+        request_object = requests.post(request_ref, headers=headers, data=data)
+        raise_detailed_error(request_object)
+        return request_object.json()
+
+    # give a refreshed id token
     def refresh(self, refresh_token):
         request_ref = "https://securetoken.googleapis.com/v1/token?key={0}".format(self.api_key)
         headers = {"content-type": "application/json; charset=UTF-8"}
@@ -123,6 +157,17 @@ class Auth:
         }
         return user
 
+    ### refresh the current user
+    def refresh_current_user(self, refresh_token):
+        response_payload = self.refresh(refresh_token)
+        self.current_user = {
+            "localId" : response_payload["userId"],
+            "idToken" : response_payload["idToken"],
+            "refreshToken" : response_payload["refreshToken"]
+        }
+        return self.current_user
+
+    # get account info
     def get_account_info(self, id_token):
         request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/getAccountInfo?key={0}".format(self.api_key)
         headers = {"content-type": "application/json; charset=UTF-8"}
@@ -131,6 +176,15 @@ class Auth:
         raise_detailed_error(request_object)
         return request_object.json()
 
+    def get_user_data(self, id_token):
+        return self.get_account_info(id_token)
+
+    ### get a property from account info
+    def get_user_property(self, id_token, property):
+        account_request = self.get_account_info(id_token)
+        return account_request["users"][0][property]
+    
+    # send email verification
     def send_email_verification(self, id_token):
         request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/getOobConfirmationCode?key={0}".format(self.api_key)
         headers = {"content-type": "application/json; charset=UTF-8"}
@@ -138,7 +192,17 @@ class Auth:
         request_object = requests.post(request_ref, headers=headers, data=data)
         raise_detailed_error(request_object)
         return request_object.json()
+     
+    ### confirm email verification using an oob code
+    def confirm_email_verification(self, oob_code):
+        request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/setAccountInfo?key={0}".format(self.api_key)
+        headers = {"content-type": "application/json; charset=UTF-8"}
+        data = json.dumps({"oobCode" : oob_code})
+        request_object = requests.post(request_ref, headers=headers, data=data)
+        raise_detailed_error(request_object)
+        return request_object.json()
 
+    # send a password reset email
     def send_password_reset_email(self, email):
         request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/getOobConfirmationCode?key={0}".format(self.api_key)
         headers = {"content-type": "application/json; charset=UTF-8"}
@@ -147,6 +211,7 @@ class Auth:
         raise_detailed_error(request_object)
         return request_object.json()
 
+    # verify the password reset code
     def verify_password_reset_code(self, reset_code, new_password):
         request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/resetPassword?key={0}".format(self.api_key)
         headers = {"content-type": "application/json; charset=UTF-8"}
@@ -155,6 +220,7 @@ class Auth:
         raise_detailed_error(request_object)
         return request_object.json()
 
+    # create a user using their email and password
     def create_user_with_email_and_password(self, email, password):
         request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/signupNewUser?key={0}".format(self.api_key)
         headers = {"content-type": "application/json; charset=UTF-8" }
@@ -162,7 +228,16 @@ class Auth:
         request_object = requests.post(request_ref, headers=headers, data=data)
         raise_detailed_error(request_object)
         return request_object.json()
-
+     
+    ### delete a user account
+    def delete_user_account(self, id_token):
+        request_ref = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/deleteAccount?key={0}".format(self.api_key)
+        headers = {"content-type": "application/json; charset=UTF-8"}
+        data = json.dumps({"idToken": id_token})
+        request_object = requests.post(request_ref, headers=headers, data=data)
+        raise_detailed_error(request_object)
+        self.current_user = None
+        return request_object.json()
 
 class Database:
     """ Database Service """
@@ -483,6 +558,7 @@ class PyreResponse:
         else:
             # return primitive or simple query results
             return self.pyres
+
 
     def key(self):
         return self.query_key
